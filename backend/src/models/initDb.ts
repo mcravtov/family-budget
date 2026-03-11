@@ -36,7 +36,8 @@ const initDb = async () => {
       name VARCHAR(100) NOT NULL,
       type VARCHAR(20) NOT NULL,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      family_id INTEGER DEFAULT 1
+      family_id INTEGER DEFAULT 1,
+      budget_limit DECIMAL DEFAULT 0
     );
   `;
 
@@ -68,12 +69,12 @@ const initDb = async () => {
     try {
       await pool.query(usersTable);
       
-      // Migrations
       const columns = [
         { table: 'users', col: 'is_admin', type: 'BOOLEAN DEFAULT FALSE' },
         { table: 'users', col: 'family_id', type: 'INTEGER DEFAULT 1' },
         { table: 'transactions', col: 'family_id', type: 'INTEGER DEFAULT 1' },
         { table: 'categories', col: 'family_id', type: 'INTEGER DEFAULT 1' },
+        { table: 'categories', col: 'budget_limit', type: 'DECIMAL DEFAULT 0' },
         { table: 'audit_logs', col: 'family_id', type: 'INTEGER DEFAULT 1' }
       ];
 
@@ -81,7 +82,6 @@ const initDb = async () => {
         const check = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='${m.table}' AND column_name='${m.col}'`);
         if (check.rows.length === 0) {
           await pool.query(`ALTER TABLE ${m.table} ADD COLUMN ${m.col} ${m.type}`);
-          console.log(`Migration: Added ${m.col} to ${m.table}`);
         }
       }
 
@@ -108,7 +108,7 @@ const initDb = async () => {
           ('Транспорт', 'expense', NULL, 1), ('Зарплата', 'income', NULL, 1), ('Подарок', 'income', NULL, 1)`);
       }
       
-      console.log('Database initialized for Family Mode');
+      console.log('Database initialized with Budgets');
       break;
     } catch (err) {
       console.error(`DB Retry ${retries}`, err);

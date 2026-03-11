@@ -5,7 +5,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { 
   Plus, LogOut, LayoutDashboard, 
   Trash2, ShieldCheck, Edit, 
-  ArrowUpCircle, ArrowDownCircle, Calendar, Wallet, RefreshCw, User
+  ArrowUpCircle, ArrowDownCircle, Calendar, Wallet, RefreshCw, User, Search
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from './api';
@@ -30,17 +30,7 @@ const LanguageSwitcher = () => {
   return (
     <div style={{ display: 'flex', gap: '8px', padding: '0 12px' }}>
       {['ru', 'ro', 'en'].map(lng => (
-        <button 
-          key={lng}
-          onClick={() => i18n.changeLanguage(lng)}
-          style={{ 
-            background: i18n.language === lng ? '#ebf3ff' : 'transparent',
-            border: 'none', color: i18n.language === lng ? '#4a90e2' : '#7f8c8d',
-            padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, fontSize: '11px'
-          }}
-        >
-          {lng.toUpperCase()}
-        </button>
+        <button key={lng} onClick={() => i18n.changeLanguage(lng)} style={{ background: i18n.language === lng ? '#ebf3ff' : 'transparent', border: 'none', color: i18n.language === lng ? '#4a90e2' : '#7f8c8d', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, fontSize: '11px' }}>{lng.toUpperCase()}</button>
       ))}
     </div>
   );
@@ -54,6 +44,7 @@ const Dashboard = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [rates, setRates] = useState<any[]>([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [search, setSearch] = useState('');
   
   const today = new Date().toISOString().split('T')[0];
   const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
@@ -90,123 +81,85 @@ const Dashboard = () => {
 
   if (!summary) return <div style={{ padding: '40px', textAlign: 'center' }}>{t('Loading...')}</div>;
 
-  const groupedTx = groupTransactionsByDate(transactions);
+  const filteredTx = transactions.filter(tx => 
+    (tx.description || '').toLowerCase().includes(search.toLowerCase()) || 
+    tx.category_name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const groupedTx = groupTransactionsByDate(filteredTx);
   const balance = (parseFloat(summary.summary.total_income || 0) - parseFloat(summary.summary.total_expense || 0)).toFixed(2);
 
   return (
     <div className="container-zen">
-      {/* Left Column */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <div className="card">
-          <div className="balance-hero">
-            <small className="section-title" style={{ marginBottom: 0 }}>{t('balance')}</small>
-            <div className="balance-amount">{balance} MDL</div>
-          </div>
+          <div className="balance-hero"><small className="section-title" style={{ marginBottom: 0 }}>{t('balance')}</small><div className="balance-amount">{balance} MDL</div></div>
           <div className="stats-mini-grid">
-            <div className="stat-box income">
-              <ArrowUpCircle size={16} />
-              <div style={{ fontWeight: 700, marginTop: '4px' }}>+{parseFloat(summary.summary.total_income || 0).toFixed(0)}</div>
-            </div>
-            <div className="stat-box expense">
-              <ArrowDownCircle size={16} />
-              <div style={{ fontWeight: 700, marginTop: '4px' }}>-{parseFloat(summary.summary.total_expense || 0).toFixed(0)}</div>
-            </div>
+            <div className="stat-box income"><ArrowUpCircle size={16} /><div style={{ fontWeight: 700, marginTop: '4px' }}>+{parseFloat(summary.summary.total_income || 0).toFixed(0)}</div></div>
+            <div className="stat-box expense"><ArrowDownCircle size={16} /><div style={{ fontWeight: 700, marginTop: '4px' }}>-{parseFloat(summary.summary.total_expense || 0).toFixed(0)}</div></div>
+          </div>
+        </div>
+
+        <div className="card">
+          <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><RefreshCw size={14} /> {t('currency_rates')}</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+            {rates.map(r => (<div key={r.currency} style={{ textAlign: 'center', padding: '6px', background: '#f8fafd', borderRadius: '10px' }}><div style={{ fontWeight: 800, fontSize: '0.7rem', color: 'var(--zen-primary)' }}>{r.currency}</div><div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{parseFloat(r.rate_to_mdl).toFixed(2)}</div></div>))}
           </div>
         </div>
 
         <div className="card">
           <h3 className="section-title">{t('analysis')}</h3>
-          <div style={{ padding: '10px' }}>
-            <Pie 
-              data={{
-                labels: summary.categories.map((c: any) => c.name),
-                datasets: [{
-                  data: summary.categories.map((c: any) => c.total),
-                  backgroundColor: ['#4a90e2', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6', '#34495e', '#1abc9c']
-                }]
-              }}
-              options={{ plugins: { legend: { display: false } } }}
-            />
-          </div>
+          <div style={{ padding: '10px', marginBottom: '20px' }}><Pie data={{ labels: summary.categories.map((c: any) => c.name), datasets: [{ data: summary.categories.map((c: any) => c.total), backgroundColor: ['#4a90e2', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6', '#34495e', '#1abc9c'] }] }} options={{ plugins: { legend: { display: false } } }} /></div>
+          
+          {/* Budget Limits Progress */}
+          {summary.categories.filter((c: any) => parseFloat(c.budget_limit) > 0).map((c: any) => {
+            const percent = Math.min((parseFloat(c.total) / parseFloat(c.budget_limit)) * 100, 100);
+            return (
+              <div key={c.id} style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '4px' }}>
+                  <span>{c.name}</span>
+                  <span style={{ fontWeight: 700 }}>{parseFloat(c.total).toFixed(0)} / {parseFloat(c.budget_limit).toFixed(0)} MDL</span>
+                </div>
+                <div style={{ height: '6px', background: '#f0f2f5', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${percent}%`, height: '100%', background: percent > 90 ? 'var(--zen-error)' : 'var(--zen-primary)', transition: 'width 0.3s' }} />
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="card">
           <h3 className="section-title">{t('activity')}</h3>
           <div style={{ fontSize: '13px', maxHeight: '200px', overflowY: 'auto' }}>
-            {logs.map((log: any) => (
-              <div key={log.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f2f5' }}>
-                <span style={{ fontWeight: 700 }}>{log.username}</span>: {log.details}
-              </div>
-            ))}
+            {logs.map((log: any) => (<div key={log.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f2f5' }}><span style={{ fontWeight: 700 }}>{log.username}</span>: {log.details}</div>))}
           </div>
         </div>
       </div>
 
-      {/* Right Column */}
       <div>
-        {/* Top Row: Filters + Currency Rates */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px', alignItems: 'start', marginBottom: '24px' }}>
-          {/* Filters Card */}
-          <div className="card" style={{ marginBottom: 0, height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.9rem' }} type="date" value={dateRange.startDate} onChange={e => setDateRange({...dateRange, startDate: e.target.value})} />
-                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.9rem' }} type="date" value={dateRange.endDate} onChange={e => setDateRange({...dateRange, endDate: e.target.value})} />
-              </div>
-              <button className="btn-zen" style={{ width: 'auto', padding: '8px 20px', whiteSpace: 'nowrap' }} onClick={() => setShowAdd(true)}>
-                <Plus size={18} /> <span className="desktop-only">{t('add_tx')}</span>
-              </button>
-            </div>
+        <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px', alignItems: 'start', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px' }} type="date" value={dateRange.startDate} onChange={e => setDateRange({...dateRange, startDate: e.target.value})} />
+            <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px' }} type="date" value={dateRange.endDate} onChange={e => setDateRange({...dateRange, endDate: e.target.value})} />
           </div>
-
-          {/* Currency Rates Card (Moved here) */}
-          <div className="card" style={{ marginBottom: 0 }}>
-            <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}><RefreshCw size={14} /> {t('currency_rates')}</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-              {rates.map(r => (
-                <div key={r.currency} style={{ textAlign: 'center', padding: '6px', background: '#f8fafd', borderRadius: '10px' }}>
-                  <div style={{ fontWeight: 800, fontSize: '0.7rem', color: 'var(--zen-primary)' }}>{r.currency}</div>
-                  <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{parseFloat(r.rate_to_mdl).toFixed(2)}</div>
-                </div>
-              ))}
-            </div>
+          <div style={{ position: 'relative' }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#bdc3c7' }} />
+            <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px 8px 36px' }} placeholder={t('Search...')} value={search} onChange={e => setSearch(e.target.value)} />
           </div>
         </div>
 
-        {/* Timeline & History */}
         {Object.keys(groupedTx).length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '60px', color: '#bdc3c7' }}>
-            <Calendar size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
-            <p>{t('no_transactions')}</p>
-          </div>
+          <div className="card" style={{ textAlign: 'center', padding: '60px', color: '#bdc3c7' }}><Calendar size={48} style={{ marginBottom: '16px', opacity: 0.3 }} /><p>{t('no_transactions')}</p></div>
         ) : (
           Object.keys(groupedTx).map(date => (
             <div key={date} className="day-group">
-              <div className="day-header">
-                <span>{date}</span>
-                <span>{groupedTx[date].reduce((acc: number, curr: any) => acc + (curr.type === 'expense' ? -parseFloat(curr.amount_mdl) : parseFloat(curr.amount_mdl)), 0).toFixed(2)} MDL</span>
-              </div>
+              <div className="day-header"><span>{date}</span><span>{groupedTx[date].reduce((acc: number, curr: any) => acc + (curr.type === 'expense' ? -parseFloat(curr.amount_mdl) : parseFloat(curr.amount_mdl)), 0).toFixed(2)} MDL</span></div>
               <div className="card" style={{ padding: '8px 20px' }}>
                 {groupedTx[date].map((tx: any) => (
                   <div key={tx.id} className="transaction-row">
-                    <div className="cat-icon">
-                      {tx.type === 'income' ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
-                    </div>
-                    <div className="tx-info">
-                      <div className="tx-name">{tx.category_name}</div>
-                      <div className="tx-desc">
-                        {tx.description || t('no_description')} <br />
-                        <small style={{ color: 'var(--zen-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <User size={10} /> {tx.owner_name}
-                        </small>
-                      </div>
-                    </div>
-                    <div className="tx-amount">
-                      <div className="amount-main" style={{ color: tx.type === 'income' ? 'var(--zen-success)' : 'var(--zen-text)' }}>
-                        {tx.type === 'income' ? '+' : ''}{parseFloat(tx.amount).toFixed(2)} {tx.currency}
-                      </div>
-                      {tx.currency !== 'MDL' && <div className="amount-sub">{parseFloat(tx.amount_mdl).toFixed(2)} MDL</div>}
-                    </div>
+                    <div className="cat-icon">{tx.type === 'income' ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}</div>
+                    <div className="tx-info"><div className="tx-name">{tx.category_name}</div><div className="tx-desc">{tx.description || t('no_description')} <br /><small style={{ color: 'var(--zen-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}><User size={10} /> {tx.owner_name}</small></div></div>
+                    <div className="tx-amount"><div className="amount-main" style={{ color: tx.type === 'income' ? 'var(--zen-success)' : 'var(--zen-text)' }}>{tx.type === 'income' ? '+' : ''}{parseFloat(tx.amount).toFixed(2)} {tx.currency}</div>{tx.currency !== 'MDL' && <div className="amount-sub">{parseFloat(tx.amount_mdl).toFixed(2)} MDL</div>}</div>
                   </div>
                 ))}
               </div>
@@ -224,26 +177,15 @@ const Dashboard = () => {
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: '12px' }}>
                 <input className="input-zen" type="number" step="0.01" placeholder="0.00" value={newTx.amount} onChange={e => setNewTx({...newTx, amount: e.target.value})} required autoFocus />
-                <select className="input-zen" value={newTx.currency} onChange={e => setNewTx({...newTx, currency: e.target.value})}>
-                  {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <select className="input-zen" value={newTx.currency} onChange={e => setNewTx({...newTx, currency: e.target.value})}>{CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}</select>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
-                <select className="input-zen" value={newTx.type} onChange={e => setNewTx({...newTx, type: e.target.value})}>
-                  <option value="expense">{t('expense')}</option>
-                  <option value="income">{t('income')}</option>
-                </select>
-                <select className="input-zen" value={newTx.category_id} onChange={e => setNewTx({...newTx, category_id: e.target.value})} required>
-                  <option value="">{t('category')}</option>
-                  {categories.filter(c => c.type === newTx.type).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <select className="input-zen" value={newTx.type} onChange={e => setNewTx({...newTx, type: e.target.value})}><option value="expense">{t('expense')}</option><option value="income">{t('income')}</option></select>
+                <select className="input-zen" value={newTx.category_id} onChange={e => setNewTx({...newTx, category_id: e.target.value})} required><option value="">{t('category')}</option>{categories.filter(c => c.type === newTx.type).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
               </div>
               <input className="input-zen" type="date" value={newTx.date} onChange={e => setNewTx({...newTx, date: e.target.value})} required style={{ marginTop: '12px' }} />
               <input className="input-zen" type="text" placeholder={t('description')} value={newTx.description} onChange={e => setNewTx({...newTx, description: e.target.value})} style={{ marginTop: '12px', marginBottom: '24px' }} />
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button className="btn-zen" type="submit" style={{ flex: 2 }}>{t('save')}</button>
-                <button className="btn-zen" type="button" style={{ background: '#ecf0f1', color: '#7f8c8d', flex: 1 }} onClick={() => setShowAdd(false)}>{t('cancel')}</button>
-              </div>
+              <div style={{ display: 'flex', gap: '12px' }}><button className="btn-zen" type="submit" style={{ flex: 2 }}>{t('save')}</button><button className="btn-zen" type="button" style={{ background: '#ecf0f1', color: '#7f8c8d', flex: 1 }} onClick={() => setShowAdd(false)}>{t('cancel')}</button></div>
             </form>
           </div>
         </div>
@@ -257,6 +199,7 @@ const Settings = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState('expense');
+  const [newLimit, setNewLimit] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const isAdmin = localStorage.getItem('is_admin') === 'true';
 
@@ -265,39 +208,31 @@ const Settings = () => {
 
   const handleAddOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) {
-      await api.put(`/budget/categories/${editingId}`, { name: newName, type: newType });
-      setEditingId(null);
-    } else {
-      await api.post('/budget/categories', { name: newName, type: newType });
-    }
-    setNewName('');
-    fetchCategories();
+    const data = { name: newName, type: newType, budget_limit: parseFloat(newLimit) || 0 };
+    if (editingId) { await api.put(`/budget/categories/${editingId}`, data); setEditingId(null); } 
+    else { await api.post('/budget/categories', data); }
+    setNewName(''); setNewLimit(''); fetchCategories();
   };
 
-  const handleEdit = (category: any) => { setEditingId(category.id); setNewName(category.name); setNewType(category.type); };
+  const handleEdit = (category: any) => { setEditingId(category.id); setNewName(category.name); setNewType(category.type); setNewLimit(category.budget_limit); };
   const handleDelete = async (id: number) => { if (window.confirm(t('delete') + '?')) { await api.delete(`/budget/categories/${id}`); fetchCategories(); } };
 
   return (
     <div className="container-zen" style={{ display: 'block', maxWidth: '800px' }}>
       <div className="card">
         <h3 className="section-title">{editingId ? t('edit_category') : t('manage_categories')}</h3>
-        <form onSubmit={handleAddOrUpdate} style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+        <form onSubmit={handleAddOrUpdate} style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
           <input className="input-zen" style={{ flex: 2, marginTop: 0 }} placeholder={t('name')} value={newName} onChange={e => setNewName(e.target.value)} required />
           <select className="input-zen" style={{ flex: 1, marginTop: 0 }} value={newType} onChange={e => setNewType(e.target.value)}><option value="expense">{t('expense')}</option><option value="income">{t('income')}</option></select>
+          <input className="input-zen" style={{ flex: 1, marginTop: 0 }} type="number" placeholder={t('limit')} value={newLimit} onChange={e => setNewLimit(e.target.value)} />
           <button className="btn-zen" type="submit" style={{ width: 'auto' }}>{editingId ? t('save') : t('add_category')}</button>
-          {editingId && <button className="btn-zen" style={{ background: '#ecf0f1', color: '#7f8c8d', width: 'auto' }} onClick={() => { setEditingId(null); setNewName(''); }}>{t('cancel')}</button>}
+          {editingId && <button className="btn-zen" style={{ background: '#ecf0f1', color: '#7f8c8d', width: 'auto' }} onClick={() => { setEditingId(null); setNewName(''); setNewLimit(''); }}>{t('cancel')}</button>}
         </form>
         <div style={{ borderTop: '1px solid #f0f2f5', paddingTop: '12px' }}>
           {categories.map(c => (
             <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f9fbff' }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>{c.name}</div>
-                <small style={{ color: '#7f8c8d' }}>{t(c.type)}</small>
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                {(c.user_id || isAdmin) && (<><button onClick={() => handleEdit(c)} style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer' }}><Edit size={18} /></button><button onClick={() => handleDelete(c.id)} style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer' }}><Trash2 size={18} /></button></>)}
-              </div>
+              <div><div style={{ fontWeight: 600 }}>{c.name}</div><small style={{ color: '#7f8c8d' }}>{t(c.type)} {parseFloat(c.budget_limit) > 0 && `(Limit: ${c.budget_limit} MDL)`}</small></div>
+              <div style={{ display: 'flex', gap: '8px' }}>{(c.user_id || isAdmin) && (<><button onClick={() => handleEdit(c)} style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer' }} title={t('edit')}><Edit size={18} /></button><button onClick={() => handleDelete(c.id)} style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer' }} title={t('delete')}><Trash2 size={18} /></button></>)}</div>
             </div>
           ))}
         </div>
@@ -332,22 +267,11 @@ const Admin = () => {
       </div>
       <div className="card">
         <h3 className="section-title">{t('registration')}</h3>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>{t('registration')}: <strong>{regEnabled ? t('enabled') : t('disabled')}</strong></span>
-          <button className="btn-zen" onClick={toggleReg} style={{ width: 'auto', background: regEnabled ? '#ffeded' : '#f0fff4', color: regEnabled ? '#e74c3c' : '#2ecc71' }}>{regEnabled ? t('disabled') : t('enabled')}</button>
-        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span>{t('registration')}: <strong>{regEnabled ? t('enabled') : t('disabled')}</strong></span><button className="btn-zen" onClick={toggleReg} style={{ width: 'auto', background: regEnabled ? '#ffeded' : '#f0fff4', color: regEnabled ? '#e74c3c' : '#2ecc71' }}>{regEnabled ? t('disabled') : t('enabled')}</button></div>
       </div>
       <div className="card">
         <h3 className="section-title">{t('users')}</h3>
-        {users.map(u => (
-          <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f9fbff' }}>
-            <div>
-              <div style={{ fontWeight: 600 }}>{u.username}</div>
-              <small style={{ color: '#7f8c8d' }}>{u.is_admin ? 'Admin' : 'User'}</small>
-            </div>
-            {!u.is_admin && <button onClick={() => deleteUser(u.id)} style={{ color: '#bdc3c7', border: 'none', background: 'none', cursor: 'pointer' }}><Trash2 size={18} /></button>}
-          </div>
-        ))}
+        {users.map(u => (<div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f9fbff' }}><div><div style={{ fontWeight: 600 }}>{u.username}</div><small style={{ color: '#7f8c8d' }}>{u.is_admin ? 'Admin' : 'User'}</small></div>{!u.is_admin && <button onClick={() => deleteUser(u.id)} style={{ color: '#bdc3c7', border: 'none', background: 'none', cursor: 'pointer' }}><Trash2 size={18} /></button>}</div>))}
       </div>
     </div>
   );
@@ -375,18 +299,13 @@ const Auth = ({ type }: { type: 'login' | 'register' }) => {
       <div className="card" style={{ width: '100%', maxWidth: '380px', padding: '40px' }}>
         <h2 style={{ textAlign: 'center', marginBottom: '32px', fontWeight: 800, color: '#4a90e2' }}>Family Budget</h2>
         {type === 'register' && !regStatus ? (
-          <div style={{ textAlign: 'center' }}>
-            <p style={{ color: '#7f8c8d', marginBottom: '24px' }}>{t('reg_closed')}</p>
-            <Link to="/login" className="btn-zen">{t('back_to_login')}</Link>
-          </div>
+          <div style={{ textAlign: 'center' }}><p style={{ color: '#7f8c8d', marginBottom: '24px' }}>{t('reg_closed')}</p><Link to="/login" className="btn-zen">{t('back_to_login')}</Link></div>
         ) : (
           <form onSubmit={handleSubmit}>
             <input className="input-zen" placeholder={t('username')} value={user.username} onChange={e => setUser({...user, username: e.target.value})} required />
             <input className="input-zen" type="password" placeholder={t('password')} value={user.password} onChange={e => setUser({...user, password: e.target.value})} required style={{ marginTop: '12px' }} />
             <button className="btn-zen" type="submit" style={{ marginTop: '24px' }}>{t(type)}</button>
-            <div style={{ marginTop: '24px', textAlign: 'center' }}>
-              {type === 'login' ? <Link to="/register" style={{ color: '#4a90e2', textDecoration: 'none', fontWeight: 600 }}>{t('create_account')}</Link> : <Link to="/login" style={{ color: '#4a90e2', textDecoration: 'none', fontWeight: 600 }}>{t('back_to_login')}</Link>}
-            </div>
+            <div style={{ marginTop: '24px', textAlign: 'center' }}>{type === 'login' ? <Link to="/register" style={{ color: '#4a90e2', textDecoration: 'none', fontWeight: 600 }}>{t('create_account')}</Link> : <Link to="/login" style={{ color: '#4a90e2', textDecoration: 'none', fontWeight: 600 }}>{t('back_to_login')}</Link>}</div>
           </form>
         )}
         <div style={{ marginTop: '32px', borderTop: '1px solid #f0f2f5', paddingTop: '20px', display: 'flex', justifyContent: 'center' }}><LanguageSwitcher /></div>

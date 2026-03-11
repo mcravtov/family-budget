@@ -31,13 +31,13 @@ export const addCategory = async (req: AuthRequest, res: Response) => {
   const userId = req.user?.id;
   const username = req.user?.username;
   const familyId = req.user?.family_id || 1;
-  const { name, type } = req.body;
+  const { name, type, budget_limit } = req.body;
   try {
     const result = await pool.query(
-      'INSERT INTO categories (name, type, user_id, family_id) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, type, userId, familyId]
+      'INSERT INTO categories (name, type, user_id, family_id, budget_limit) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [name, type, userId, familyId, budget_limit || 0]
     );
-    await logAction(userId, username, familyId, 'ADD_CATEGORY', `Category: ${name} (${type})`);
+    await logAction(userId, username, familyId, 'ADD_CATEGORY', `Category: ${name} (Limit: ${budget_limit || 0})`);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: 'Database error' });
@@ -50,7 +50,7 @@ export const updateCategory = async (req: AuthRequest, res: Response) => {
   const familyId = req.user?.family_id || 1;
   const isAdmin = req.user?.is_admin;
   const { id } = req.params;
-  const { name, type } = req.body;
+  const { name, type, budget_limit } = req.body;
   try {
     let oldCat;
     if (isAdmin) {
@@ -62,12 +62,12 @@ export const updateCategory = async (req: AuthRequest, res: Response) => {
     if (oldCat.rows.length === 0) return res.status(404).json({ error: 'Access denied' });
 
     const result = await pool.query(
-      'UPDATE categories SET name = $1, type = $2 WHERE id = $3 RETURNING *',
-      [name, type, id]
+      'UPDATE categories SET name = $1, type = $2, budget_limit = $3 WHERE id = $4 RETURNING *',
+      [name, type, budget_limit || 0, id]
     );
     
     await logAction(userId, username, familyId, 'UPDATE_CATEGORY', 
-      `Changed category "${oldCat.rows[0].name}" to "${name}" (${type})`);
+      `Updated "${name}" (Limit: ${budget_limit})`);
     
     res.json(result.rows[0]);
   } catch (error) {
@@ -156,38 +156,39 @@ export const getSummary = async (req: AuthRequest, res: Response) => {
   const familyId = req.user?.family_id || 1;
   const { startDate, endDate } = req.query;
   try {
-    let whereClause = `WHERE family_id = $1`;
     const params: any[] = [familyId];
-
+    let dateFilter = "";
     if (startDate && endDate) {
-      whereClause += ` AND date BETWEEN $2 AND $3`;
+      dateFilter = " AND t.date BETWEEN $2 AND $3";
       params.push(startDate, endDate);
     }
 
-    const result = await pool.query(
+    const summaryResult = await pool.query(
       `SELECT 
         SUM(CASE WHEN type = 'income' THEN amount_mdl ELSE 0 END) as total_income,
         SUM(CASE WHEN type = 'expense' THEN amount_mdl ELSE 0 END) as total_expense
        FROM transactions 
-       ${whereClause}`,
+       WHERE family_id = $1 ${dateFilter.replace('t.','')}`,
       params
     );
     
     const categoryAnalysis = await pool.query(
-      `SELECT c.name, SUM(t.amount_mdl) as total
-       FROM transactions t
-       JOIN categories c ON t.category_id = c.id
-       WHERE t.family_id = $1 AND t.type = 'expense'
-       ${startDate && endDate ? ' AND t.date BETWEEN $2 AND $3' : ''}
-       GROUP BY c.name`,
+      `SELECT c.id, c.name, c.budget_limit, COALESCE(SUM(t.amount_mdl), 0) as total
+       FROM categories c
+       LEFT JOIN transactions t ON t.category_id = c.id ${dateFilter}
+       WHERE c.family_id = $1 AND c.type = 'expense'
+       GROUP BY c.id, c.name, c.budget_limit
+       HAVING COALESCE(SUM(t.amount_mdl), 0) > 0 OR c.budget_limit > 0
+       ORDER BY total DESC`,
       params
     );
 
     res.json({
-      summary: result.rows[0],
+      summary: summaryResult.rows[0],
       categories: categoryAnalysis.rows
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Database error' });
   }
 };
