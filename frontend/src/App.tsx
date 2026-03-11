@@ -115,18 +115,6 @@ const Dashboard = () => {
         </div>
 
         <div className="card">
-          <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><RefreshCw size={14} /> {t('currency_rates')}</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '12px' }}>
-            {rates.map(r => (
-              <div key={r.currency} style={{ textAlign: 'center', padding: '8px', background: '#f8fafd', borderRadius: '12px' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.8rem', color: 'var(--zen-primary)' }}>{r.currency}</div>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{parseFloat(r.rate_to_mdl).toFixed(2)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card">
           <h3 className="section-title">{t('analysis')}</h3>
           <div style={{ padding: '10px' }}>
             <Pie 
@@ -156,16 +144,36 @@ const Dashboard = () => {
 
       {/* Right Column */}
       <div>
-        <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.9rem' }} type="date" value={dateRange.startDate} onChange={e => setDateRange({...dateRange, startDate: e.target.value})} />
-            <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.9rem' }} type="date" value={dateRange.endDate} onChange={e => setDateRange({...dateRange, endDate: e.target.value})} />
+        {/* Top Row: Filters + Currency Rates */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px', alignItems: 'start', marginBottom: '24px' }}>
+          {/* Filters Card */}
+          <div className="card" style={{ marginBottom: 0, height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.9rem' }} type="date" value={dateRange.startDate} onChange={e => setDateRange({...dateRange, startDate: e.target.value})} />
+                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.9rem' }} type="date" value={dateRange.endDate} onChange={e => setDateRange({...dateRange, endDate: e.target.value})} />
+              </div>
+              <button className="btn-zen" style={{ width: 'auto', padding: '8px 20px', whiteSpace: 'nowrap' }} onClick={() => setShowAdd(true)}>
+                <Plus size={18} /> <span className="desktop-only">{t('add_tx')}</span>
+              </button>
+            </div>
           </div>
-          <button className="btn-zen" style={{ width: 'auto', padding: '8px 20px' }} onClick={() => setShowAdd(true)}>
-            <Plus size={18} /> <span className="desktop-only">{t('add_tx')}</span>
-          </button>
+
+          {/* Currency Rates Card (Moved here) */}
+          <div className="card" style={{ marginBottom: 0 }}>
+            <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}><RefreshCw size={14} /> {t('currency_rates')}</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              {rates.map(r => (
+                <div key={r.currency} style={{ textAlign: 'center', padding: '6px', background: '#f8fafd', borderRadius: '10px' }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.7rem', color: 'var(--zen-primary)' }}>{r.currency}</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{parseFloat(r.rate_to_mdl).toFixed(2)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
+        {/* Timeline & History */}
         {Object.keys(groupedTx).length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '60px', color: '#bdc3c7' }}>
             <Calendar size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
