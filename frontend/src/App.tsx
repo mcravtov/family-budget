@@ -132,11 +132,12 @@ const Dashboard = () => {
       {/* Right Column */}
       <div>
         {/* Top Row: Filters + SEARCH + Currency Rates */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px', alignItems: 'start', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px', alignItems: 'stretch', marginBottom: '24px' }}>
           
-          <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-              <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
+          <div className="card" style={{ marginBottom: 0, padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Input Row */}
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '8px', flex: 1.5 }}>
                 <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.85rem' }} type="date" value={dateRange.startDate} onChange={e => setDateRange({...dateRange, startDate: e.target.value})} />
                 <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.85rem' }} type="date" value={dateRange.endDate} onChange={e => setDateRange({...dateRange, endDate: e.target.value})} />
               </div>
@@ -144,14 +145,14 @@ const Dashboard = () => {
                 <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#bdc3c7' }} />
                 <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px 8px 32px', fontSize: '0.85rem' }} placeholder={t('Search...')} value={search} onChange={e => setSearch(e.target.value)} />
               </div>
-              <button className="btn-zen" style={{ width: 'auto', padding: '10px 16px' }} onClick={() => setShowAdd(true)}>
-                <Plus size={18} />
-              </button>
             </div>
+            {/* NEW BUTTON POSITION: Large button below inputs */}
+            <button className="btn-zen" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onClick={() => setShowAdd(true)}>
+              <Plus size={20} /> {t('add_tx')}
+            </button>
           </div>
 
-          {/* Currency Rates Card (FIXED POSITION) */}
-          <div className="card" style={{ marginBottom: 0, padding: '16px' }}>
+          <div className="card" style={{ marginBottom: 0, padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '0.75rem' }}><RefreshCw size={12} /> {t('currency_rates')}</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
               {rates.map(r => (<div key={r.currency} style={{ textAlign: 'center', padding: '6px', background: '#f8fafd', borderRadius: '10px' }}><div style={{ fontWeight: 800, fontSize: '0.65rem', color: 'var(--zen-primary)' }}>{r.currency}</div><div style={{ fontWeight: 700, fontSize: '0.8rem' }}>{parseFloat(r.rate_to_mdl).toFixed(2)}</div></div>))}
