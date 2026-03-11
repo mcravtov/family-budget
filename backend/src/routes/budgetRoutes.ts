@@ -3,7 +3,8 @@ import { authenticateToken, isAdmin } from '../middleware/auth.js';
 import { 
   getCategories, addCategory, updateCategory, deleteCategory,
   getTransactions, addTransaction, 
-  getSummary, getRates, getAuditLogs, getUsers, createUser, deleteUser, updateRegistrationSetting
+  getSummary, getRates, getAuditLogs, getUsers, createUser, deleteUser, 
+  updateRegistrationSetting, getGoals, addGoal, updateGoal, deleteGoal, exportCSV
 } from '../controllers/budgetController.js';
 
 const router = express.Router();
@@ -20,6 +21,15 @@ router.post('/transactions', addTransaction);
 
 router.get('/summary', getSummary);
 router.get('/rates', getRates);
+
+// Savings Goals
+router.get('/goals', getGoals);
+router.post('/goals', addGoal);
+router.put('/goals/:id', updateGoal);
+router.delete('/goals/:id', deleteGoal);
+
+// Export
+router.get('/export', exportCSV);
 
 // Admin only routes
 router.get('/admin/logs', isAdmin, getAuditLogs);

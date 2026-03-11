@@ -5,7 +5,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { 
   Plus, LogOut, LayoutDashboard, 
   Trash2, ShieldCheck, Edit, 
-  ArrowUpCircle, ArrowDownCircle, Calendar, Wallet, RefreshCw, User, Search
+  ArrowUpCircle, ArrowDownCircle, Wallet, RefreshCw, User, Search, Download, Target, Repeat
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from './api';
@@ -43,6 +43,7 @@ const Dashboard = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [rates, setRates] = useState<any[]>([]);
+  const [goals, setGoals] = useState<any[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState('');
   
@@ -50,26 +51,38 @@ const Dashboard = () => {
   const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
   const [dateRange, setDateRange] = useState({ startDate: firstDayOfMonth, endDate: today });
 
-  const [newTx, setNewTx] = useState({ amount: '', currency: 'MDL', category_id: '', type: 'expense', description: '', date: today });
+  const [newTx, setNewTx] = useState({ amount: '', currency: 'MDL', category_id: '', type: 'expense', description: '', date: today, is_recurring: false });
 
   useEffect(() => { fetchData(); }, [dateRange]);
 
   const fetchData = async () => {
     try {
       const params = { startDate: dateRange.startDate, endDate: dateRange.endDate };
-      const [s, c, tRes, lRes, rRes] = await Promise.all([
+      const [s, c, tRes, lRes, rRes, gRes] = await Promise.all([
         api.get('/budget/summary', { params }),
         api.get('/budget/categories'),
         api.get('/budget/transactions', { params }),
         api.get('/budget/admin/logs').catch(() => ({ data: [] })),
-        api.get('/budget/rates').catch(() => ({ data: [] }))
+        api.get('/budget/rates').catch(() => ({ data: [] })),
+        api.get('/budget/goals').catch(() => ({ data: [] }))
       ]);
       setSummary(s.data);
       setCategories(c.data);
       setTransactions(tRes.data);
       setLogs(lRes.data);
       setRates(rRes.data);
+      setGoals(gRes.data);
     } catch (e) { console.error(e); }
+  };
+
+  const handleExport = async () => {
+    const res = await api.get('/budget/export', { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'budget_export.csv');
+    document.body.appendChild(link);
+    link.click();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,17 +94,12 @@ const Dashboard = () => {
 
   if (!summary) return <div style={{ padding: '40px', textAlign: 'center' }}>{t('Loading...')}</div>;
 
-  const filteredTx = transactions.filter(tx => 
-    (tx.description || '').toLowerCase().includes(search.toLowerCase()) || 
-    tx.category_name.toLowerCase().includes(search.toLowerCase())
-  );
-
+  const filteredTx = transactions.filter(tx => (tx.description || '').toLowerCase().includes(search.toLowerCase()) || tx.category_name.toLowerCase().includes(search.toLowerCase()));
   const groupedTx = groupTransactionsByDate(filteredTx);
   const balance = (parseFloat(summary.summary.total_income || 0) - parseFloat(summary.summary.total_expense || 0)).toFixed(2);
 
   return (
     <div className="container-zen">
-      {/* Left Column */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <div className="card">
           <div className="balance-hero"><small className="section-title" style={{ marginBottom: 0 }}>{t('balance')}</small><div className="balance-amount">{balance} MDL</div></div>
@@ -101,57 +109,61 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Goals Section */}
+        <div className="card">
+          <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Target size={14} /> {t('goals')}</h3>
+          {goals.map(g => {
+            const percent = Math.min((parseFloat(g.current_amount) / parseFloat(g.target_amount)) * 100, 100);
+            return (
+              <div key={g.id} style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '4px' }}>
+                  <span>{g.name}</span>
+                  <span style={{ fontWeight: 700 }}>{parseFloat(g.current_amount).toFixed(0)} / {parseFloat(g.target_amount).toFixed(0)} {g.currency}</span>
+                </div>
+                <div style={{ height: '6px', background: '#f0f2f5', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${percent}%`, height: '100%', background: 'var(--zen-success)', transition: 'width 0.3s' }} />
+                </div>
+              </div>
+            );
+          })}
+          <Link to="/settings" style={{ fontSize: '0.75rem', color: 'var(--zen-primary)', textDecoration: 'none', fontWeight: 700 }}>+ {t('add_goal')}</Link>
+        </div>
+
         <div className="card">
           <h3 className="section-title">{t('analysis')}</h3>
           <div style={{ padding: '10px', marginBottom: '20px' }}><Pie data={{ labels: summary.categories.map((c: any) => c.name), datasets: [{ data: summary.categories.map((c: any) => c.total), backgroundColor: ['#4a90e2', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6', '#34495e', '#1abc9c'] }] }} options={{ plugins: { legend: { display: false } } }} /></div>
-          
           {summary.categories.filter((c: any) => parseFloat(c.budget_limit) > 0).map((c: any) => {
             const percent = Math.min((parseFloat(c.total) / parseFloat(c.budget_limit)) * 100, 100);
             return (
               <div key={c.id} style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '4px' }}>
-                  <span>{c.name}</span>
-                  <span style={{ fontWeight: 700 }}>{parseFloat(c.total).toFixed(0)} / {parseFloat(c.budget_limit).toFixed(0)} MDL</span>
-                </div>
-                <div style={{ height: '6px', background: '#f0f2f5', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${percent}%`, height: '100%', background: percent > 90 ? 'var(--zen-error)' : 'var(--zen-primary)', transition: 'width 0.3s' }} />
-                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '4px' }}><span>{c.name}</span><span style={{ fontWeight: 700 }}>{parseFloat(c.total).toFixed(0)} / {parseFloat(c.budget_limit).toFixed(0)} MDL</span></div>
+                <div style={{ height: '6px', background: '#f0f2f5', borderRadius: '3px', overflow: 'hidden' }}><div style={{ width: `${percent}%`, height: '100%', background: percent > 90 ? 'var(--zen-error)' : 'var(--zen-primary)', transition: 'width 0.3s' }} /></div>
               </div>
             );
           })}
         </div>
 
-        <div className="card">
-          <h3 className="section-title">{t('activity')}</h3>
-          <div style={{ fontSize: '13px', maxHeight: '200px', overflowY: 'auto' }}>
-            {logs.map((log: any) => (<div key={log.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f2f5' }}><span style={{ fontWeight: 700 }}>{log.username}</span>: {log.details}</div>))}
-          </div>
-        </div>
+        <div className="card"><h3 className="section-title">{t('activity')}</h3><div style={{ fontSize: '13px', maxHeight: '200px', overflowY: 'auto' }}>{logs.map((log: any) => (<div key={log.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f2f5' }}><span style={{ fontWeight: 700 }}>{log.username}</span>: {log.details}</div>))}</div></div>
       </div>
 
-      {/* Right Column */}
       <div>
-        {/* Top Row: Filters + SEARCH + Currency Rates */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px', alignItems: 'stretch', marginBottom: '24px' }}>
-          
           <div className="card" style={{ marginBottom: 0, padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Input Row */}
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
               <div style={{ display: 'flex', gap: '8px', flex: 1.5 }}>
-                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.85rem' }} type="date" value={dateRange.startDate} onChange={e => setDateRange({...dateRange, startDate: e.target.value})} />
-                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.85rem' }} type="date" value={dateRange.endDate} onChange={e => setDateRange({...dateRange, endDate: e.target.value})} />
+                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px' }} type="date" value={dateRange.startDate} onChange={e => setDateRange({...dateRange, startDate: e.target.value})} />
+                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px' }} type="date" value={dateRange.endDate} onChange={e => setDateRange({...dateRange, endDate: e.target.value})} />
               </div>
               <div style={{ position: 'relative', flex: 1 }}>
                 <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#bdc3c7' }} />
-                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px 8px 32px', fontSize: '0.85rem' }} placeholder={t('Search...')} value={search} onChange={e => setSearch(e.target.value)} />
+                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px 8px 32px' }} placeholder={t('search')} value={search} onChange={e => setSearch(e.target.value)} />
               </div>
             </div>
-            {/* NEW BUTTON POSITION: Large button below inputs */}
-            <button className="btn-zen" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onClick={() => setShowAdd(true)}>
-              <Plus size={20} /> {t('add_tx')}
-            </button>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button className="btn-zen" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onClick={() => setShowAdd(true)}><Plus size={20} /> {t('add_tx')}</button>
+              <button className="btn-zen" style={{ background: '#f8fafd', color: 'var(--zen-text)', flex: 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onClick={handleExport}><Download size={18} /> {t('export')}</button>
+            </div>
           </div>
-
           <div className="card" style={{ marginBottom: 0, padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '0.75rem' }}><RefreshCw size={12} /> {t('currency_rates')}</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
@@ -160,25 +172,23 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Timeline & History */}
-        {Object.keys(groupedTx).length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '60px', color: '#bdc3c7' }}><Calendar size={48} style={{ marginBottom: '16px', opacity: 0.3 }} /><p>{t('no_transactions')}</p></div>
-        ) : (
-          Object.keys(groupedTx).map(date => (
-            <div key={date} className="day-group">
-              <div className="day-header"><span>{date}</span><span>{groupedTx[date].reduce((acc: number, curr: any) => acc + (curr.type === 'expense' ? -parseFloat(curr.amount_mdl) : parseFloat(curr.amount_mdl)), 0).toFixed(2)} MDL</span></div>
-              <div className="card" style={{ padding: '8px 20px' }}>
-                {groupedTx[date].map((tx: any) => (
-                  <div key={tx.id} className="transaction-row">
-                    <div className="cat-icon">{tx.type === 'income' ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}</div>
-                    <div className="tx-info"><div className="tx-name">{tx.category_name}</div><div className="tx-desc">{tx.description || t('no_description')} <br /><small style={{ color: 'var(--zen-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}><User size={10} /> {tx.owner_name}</small></div></div>
-                    <div className="tx-amount"><div className="amount-main" style={{ color: tx.type === 'income' ? 'var(--zen-success)' : 'var(--zen-text)' }}>{tx.type === 'income' ? '+' : ''}{parseFloat(tx.amount).toFixed(2)} {tx.currency}</div>{tx.currency !== 'MDL' && <div className="amount-sub">{parseFloat(tx.amount_mdl).toFixed(2)} MDL</div>}</div>
+        {Object.keys(groupedTx).map(date => (
+          <div key={date} className="day-group">
+            <div className="day-header"><span>{date}</span><span>{groupedTx[date].reduce((acc: number, curr: any) => acc + (curr.type === 'expense' ? -parseFloat(curr.amount_mdl) : parseFloat(curr.amount_mdl)), 0).toFixed(2)} MDL</span></div>
+            <div className="card" style={{ padding: '8px 20px' }}>
+              {groupedTx[date].map((tx: any) => (
+                <div key={tx.id} className="transaction-row">
+                  <div className="cat-icon">{tx.type === 'income' ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}</div>
+                  <div className="tx-info">
+                    <div className="tx-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>{tx.category_name} {tx.is_recurring && <Repeat size={12} style={{ color: 'var(--zen-primary)' }} />}</div>
+                    <div className="tx-desc">{tx.description || t('no_description')} <br /><small style={{ color: 'var(--zen-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}><User size={10} /> {tx.owner_name}</small></div>
                   </div>
-                ))}
-              </div>
+                  <div className="tx-amount"><div className="amount-main" style={{ color: tx.type === 'income' ? 'var(--zen-success)' : 'var(--zen-text)' }}>{tx.type === 'income' ? '+' : ''}{parseFloat(tx.amount).toFixed(2)} {tx.currency}</div>{tx.currency !== 'MDL' && <div className="amount-sub">{parseFloat(tx.amount_mdl).toFixed(2)} MDL</div>}</div>
+                </div>
+              ))}
             </div>
-          ))
-        )}
+          </div>
+        ))}
       </div>
 
       <button className="fab" onClick={() => setShowAdd(true)}><Plus size={32} /></button>
@@ -196,7 +206,10 @@ const Dashboard = () => {
                 <select className="input-zen" value={newTx.type} onChange={e => setNewTx({...newTx, type: e.target.value})}><option value="expense">{t('expense')}</option><option value="income">{t('income')}</option></select>
                 <select className="input-zen" value={newTx.category_id} onChange={e => setNewTx({...newTx, category_id: e.target.value})} required><option value="">{t('category')}</option>{categories.filter(c => c.type === newTx.type).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
               </div>
-              <input className="input-zen" type="date" value={newTx.date} onChange={e => setNewTx({...newTx, date: e.target.value})} required style={{ marginTop: '12px' }} />
+              <div style={{ display: 'flex', gap: '12px', marginTop: '12px', alignItems: 'center' }}>
+                <input className="input-zen" type="date" value={newTx.date} onChange={e => setNewTx({...newTx, date: e.target.value})} required style={{ marginTop: 0 }} />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}><input type="checkbox" checked={newTx.is_recurring} onChange={e => setNewTx({...newTx, is_recurring: e.target.checked})} /> {t('recurring')}</label>
+              </div>
               <input className="input-zen" type="text" placeholder={t('description')} value={newTx.description} onChange={e => setNewTx({...newTx, description: e.target.value})} style={{ marginTop: '12px', marginBottom: '24px' }} />
               <div style={{ display: 'flex', gap: '12px' }}><button className="btn-zen" type="submit" style={{ flex: 2 }}>{t('save')}</button><button className="btn-zen" type="button" style={{ background: '#ecf0f1', color: '#7f8c8d', flex: 1 }} onClick={() => setShowAdd(false)}>{t('cancel')}</button></div>
             </form>
@@ -210,45 +223,86 @@ const Dashboard = () => {
 const Settings = () => {
   const { t } = useTranslation();
   const [categories, setCategories] = useState<any[]>([]);
+  const [goals, setGoals] = useState<any[]>([]);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState('expense');
   const [newLimit, setNewLimit] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [newGoal, setNewGoal] = useState({ name: '', target: '', currency: 'MDL' });
   const isAdmin = localStorage.getItem('is_admin') === 'true';
 
-  useEffect(() => { fetchCategories(); }, []);
-  const fetchCategories = async () => { const res = await api.get('/budget/categories'); setCategories(res.data); };
+  useEffect(() => { fetchData(); }, []);
+  const fetchData = async () => { 
+    const [c, g] = await Promise.all([api.get('/budget/categories'), api.get('/budget/goals')]);
+    setCategories(c.data);
+    setGoals(g.data);
+  };
 
-  const handleAddOrUpdate = async (e: React.FormEvent) => {
+  const handleAddCat = async (e: React.FormEvent) => {
     e.preventDefault();
     const data = { name: newName, type: newType, budget_limit: parseFloat(newLimit) || 0 };
     if (editingId) { await api.put(`/budget/categories/${editingId}`, data); setEditingId(null); } 
     else { await api.post('/budget/categories', data); }
-    setNewName(''); setNewLimit(''); fetchCategories();
+    setNewName(''); setNewLimit(''); fetchData();
   };
 
+  const handleAddGoal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await api.post('/budget/goals', { name: newGoal.name, target_amount: parseFloat(newGoal.target), currency: newGoal.currency });
+    setNewGoal({ name: '', target: '', currency: 'MDL' }); fetchData();
+  };
+
+  const updateGoalProgress = async (id: number, current: string) => {
+    await api.put(`/budget/goals/${id}`, { current_amount: parseFloat(current) });
+    fetchData();
+  };
+
+  const deleteGoal = async (id: number) => { if (window.confirm(t('delete') + '?')) { await api.delete(`/budget/goals/${id}`); fetchData(); } };
   const handleEdit = (category: any) => { setEditingId(category.id); setNewName(category.name); setNewType(category.type); setNewLimit(category.budget_limit); };
-  const handleDelete = async (id: number) => { if (window.confirm(t('delete') + '?')) { await api.delete(`/budget/categories/${id}`); fetchCategories(); } };
+  const deleteCat = async (id: number) => { if (window.confirm(t('delete') + '?')) { await api.delete(`/budget/categories/${id}`); fetchData(); } };
 
   return (
-    <div className="container-zen" style={{ display: 'block', maxWidth: '800px' }}>
+    <div className="container-zen" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', maxWidth: '1100px' }}>
       <div className="card">
-        <h3 className="section-title">{editingId ? t('edit_category') : t('manage_categories')}</h3>
-        <form onSubmit={handleAddOrUpdate} style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-          <input className="input-zen" style={{ flex: 2, marginTop: 0 }} placeholder={t('name')} value={newName} onChange={e => setNewName(e.target.value)} required />
-          <select className="input-zen" style={{ flex: 1, marginTop: 0 }} value={newType} onChange={e => setNewType(e.target.value)}><option value="expense">{t('expense')}</option><option value="income">{t('income')}</option></select>
-          <input className="input-zen" style={{ flex: 1, marginTop: 0 }} type="number" placeholder={t('limit')} value={newLimit} onChange={e => setNewLimit(e.target.value)} />
-          <button className="btn-zen" type="submit" style={{ width: 'auto' }}>{editingId ? t('save') : t('add_category')}</button>
-          {editingId && <button className="btn-zen" style={{ background: '#ecf0f1', color: '#7f8c8d', width: 'auto' }} onClick={() => { setEditingId(null); setNewName(''); setNewLimit(''); }}>{t('cancel')}</button>}
+        <h3 className="section-title">{t('manage_categories')}</h3>
+        <form onSubmit={handleAddCat} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+          <input className="input-zen" style={{ marginTop: 0 }} placeholder={t('name')} value={newName} onChange={e => setNewName(e.target.value)} required />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <select className="input-zen" style={{ marginTop: 0 }} value={newType} onChange={e => setNewType(e.target.value)}><option value="expense">{t('expense')}</option><option value="income">{t('income')}</option></select>
+            <input className="input-zen" style={{ marginTop: 0 }} type="number" placeholder={t('limit')} value={newLimit} onChange={e => setNewLimit(e.target.value)} />
+          </div>
+          <button className="btn-zen" type="submit">{editingId ? t('save') : t('add_category')}</button>
         </form>
-        <div style={{ borderTop: '1px solid #f0f2f5', paddingTop: '12px' }}>
-          {categories.map(c => (
-            <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f9fbff' }}>
-              <div><div style={{ fontWeight: 600 }}>{c.name}</div><small style={{ color: '#7f8c8d' }}>{t(c.type)} {parseFloat(c.budget_limit) > 0 && `(Limit: ${c.budget_limit} MDL)`}</small></div>
-              <div style={{ display: 'flex', gap: '8px' }}>{(c.user_id || isAdmin) && (<><button onClick={() => handleEdit(c)} style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer' }} title={t('edit')}><Edit size={18} /></button><button onClick={() => handleDelete(c.id)} style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer' }} title={t('delete')}><Trash2 size={18} /></button></>)}</div>
+        {categories.map(c => (
+          <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f9fbff' }}>
+            <div><div style={{ fontWeight: 600 }}>{c.name}</div><small style={{ color: '#7f8c8d' }}>{t(c.type)} {parseFloat(c.budget_limit) > 0 && `(${c.budget_limit} MDL)`}</small></div>
+            <div style={{ display: 'flex', gap: '8px' }}>{(c.user_id || isAdmin) && (<><button onClick={() => handleEdit(c)} style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer' }}><Edit size={18} /></button><button onClick={() => deleteCat(c.id)} style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer' }}><Trash2 size={18} /></button></>)}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <h3 className="section-title">{t('goals')}</h3>
+        <form onSubmit={handleAddGoal} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+          <input className="input-zen" style={{ marginTop: 0 }} placeholder={t('name')} value={newGoal.name} onChange={e => setNewGoal({...newGoal, name: e.target.value})} required />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: '12px' }}>
+            <input className="input-zen" style={{ marginTop: 0 }} type="number" placeholder={t('target')} value={newGoal.target} onChange={e => setNewGoal({...newGoal, target: e.target.value})} required />
+            <select className="input-zen" style={{ marginTop: 0 }} value={newGoal.currency} onChange={e => setNewGoal({...newGoal, currency: e.target.value})}>{CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}</select>
+          </div>
+          <button className="btn-zen" type="submit" style={{ background: 'var(--zen-success)' }}>{t('add_goal')}</button>
+        </form>
+        {goals.map(g => (
+          <div key={g.id} style={{ padding: '16px 0', borderBottom: '1px solid #f9fbff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontWeight: 700 }}>{g.name}</span>
+              <button onClick={() => deleteGoal(g.id)} style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer' }}><Trash2 size={14} /></button>
             </div>
-          ))}
-        </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input className="input-zen" style={{ marginTop: 0, padding: '4px 8px', fontSize: '0.8rem' }} type="number" value={g.current_amount} onChange={e => updateGoalProgress(g.id, e.target.value)} />
+              <span style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>/ {g.target_amount} {g.currency}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -352,13 +406,15 @@ function App() {
         </aside>
       )}
       <main className="main-wrap">
-        <Routes>
-          <Route path="/login" element={!isAuth ? <Auth type="login" /> : <Navigate to="/" />} />
-          <Route path="/register" element={!isAuth ? <Auth type="register" /> : <Navigate to="/" />} />
-          <Route path="/" element={isAuth ? <Dashboard /> : <Navigate to="/login" />} />
-          <Route path="/settings" element={isAuth ? <Settings /> : <Navigate to="/login" />} />
-          <Route path="/admin" element={isAdmin ? <Admin /> : <Navigate to="/" />} />
-        </Routes>
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', width: '100%' }}>
+          <Routes>
+            <Route path="/login" element={!isAuth ? <Auth type="login" /> : <Navigate to="/" />} />
+            <Route path="/register" element={!isAuth ? <Auth type="register" /> : <Navigate to="/" />} />
+            <Route path="/" element={isAuth ? <Dashboard /> : <Navigate to="/login" />} />
+            <Route path="/settings" element={isAuth ? <Settings /> : <Navigate to="/login" />} />
+            <Route path="/admin" element={isAdmin ? <Admin /> : <Navigate to="/" />} />
+          </Routes>
+        </div>
       </main>
     </div>
   );

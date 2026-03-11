@@ -52,7 +52,19 @@ const initDb = async () => {
       amount_mdl DECIMAL NOT NULL,
       date DATE NOT NULL DEFAULT CURRENT_DATE,
       description TEXT,
-      type VARCHAR(20) NOT NULL
+      type VARCHAR(20) NOT NULL,
+      is_recurring BOOLEAN DEFAULT FALSE
+    );
+  `;
+
+  const savingsGoalsTable = `
+    CREATE TABLE IF NOT EXISTS savings_goals (
+      id SERIAL PRIMARY KEY,
+      family_id INTEGER DEFAULT 1,
+      name VARCHAR(100) NOT NULL,
+      target_amount DECIMAL NOT NULL,
+      current_amount DECIMAL DEFAULT 0,
+      currency VARCHAR(10) DEFAULT 'MDL'
     );
   `;
 
@@ -73,6 +85,7 @@ const initDb = async () => {
         { table: 'users', col: 'is_admin', type: 'BOOLEAN DEFAULT FALSE' },
         { table: 'users', col: 'family_id', type: 'INTEGER DEFAULT 1' },
         { table: 'transactions', col: 'family_id', type: 'INTEGER DEFAULT 1' },
+        { table: 'transactions', col: 'is_recurring', type: 'BOOLEAN DEFAULT FALSE' },
         { table: 'categories', col: 'family_id', type: 'INTEGER DEFAULT 1' },
         { table: 'categories', col: 'budget_limit', type: 'DECIMAL DEFAULT 0' },
         { table: 'audit_logs', col: 'family_id', type: 'INTEGER DEFAULT 1' }
@@ -89,6 +102,7 @@ const initDb = async () => {
       await pool.query(auditLogsTable);
       await pool.query(categoriesTable);
       await pool.query(transactionsTable);
+      await pool.query(savingsGoalsTable);
       await pool.query(exchangeRatesTable);
       
       const adminCheck = await pool.query("SELECT COUNT(*) FROM users WHERE is_admin = TRUE");
@@ -108,7 +122,7 @@ const initDb = async () => {
           ('Транспорт', 'expense', NULL, 1), ('Зарплата', 'income', NULL, 1), ('Подарок', 'income', NULL, 1)`);
       }
       
-      console.log('Database initialized with Budgets');
+      console.log('Database initialized with Advanced Features');
       break;
     } catch (err) {
       console.error(`DB Retry ${retries}`, err);

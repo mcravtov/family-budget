@@ -44,7 +44,15 @@ const resources = {
       disabled: 'Disabled',
       activity: 'Activity Feed',
       currency_rates: 'Currency Rates',
-      reg_closed: 'Registration is currently disabled by administrator.'
+      reg_closed: 'Registration is currently disabled by administrator.',
+      limit: 'Monthly Limit',
+      goals: 'Savings Goals',
+      target: 'Target',
+      current: 'Current',
+      add_goal: 'Add Goal',
+      export: 'Export Data',
+      recurring: 'Recurring (Monthly)',
+      search: 'Search...'
     }
   },
   ru: {
@@ -88,7 +96,15 @@ const resources = {
       disabled: 'Выключена',
       activity: 'Лента активности',
       currency_rates: 'Курсы валют',
-      reg_closed: 'Регистрация временно отключена администратором.'
+      reg_closed: 'Регистрация временно отключена администратором.',
+      limit: 'Лимит в месяц',
+      goals: 'Копилки',
+      target: 'Цель',
+      current: 'Собрано',
+      add_goal: 'Создать копилку',
+      export: 'Экспорт данных',
+      recurring: 'Повторять каждый месяц',
+      search: 'Поиск...'
     }
   },
   ro: {
@@ -132,7 +148,15 @@ const resources = {
       disabled: 'Dezactivat',
       activity: 'Activitate recentă',
       currency_rates: 'Cursuri valutare',
-      reg_closed: 'Înregistrarea este momentan dezactivată de administrator.'
+      reg_closed: 'Înregistrarea este momentan dezactivată de administrator.',
+      limit: 'Limită lunară',
+      goals: 'Economii',
+      target: 'Țintă',
+      current: 'Curent',
+      add_goal: 'Adaugă scop',
+      export: 'Exportă datele',
+      recurring: 'Recurent (lunar)',
+      search: 'Caută...'
     }
   }
 };

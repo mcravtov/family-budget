@@ -17,14 +17,9 @@ const logAction = async (userId: number | undefined, username: string | undefine
 export const getCategories = async (req: AuthRequest, res: Response) => {
   const familyId = req.user?.family_id || 1;
   try {
-    const result = await pool.query(
-      'SELECT * FROM categories WHERE family_id = $1 OR user_id IS NULL ORDER BY name ASC', 
-      [familyId]
-    );
+    const result = await pool.query('SELECT * FROM categories WHERE family_id = $1 OR user_id IS NULL ORDER BY name ASC', [familyId]);
     res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: 'Database error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Database error' }); }
 };
 
 export const addCategory = async (req: AuthRequest, res: Response) => {
@@ -37,66 +32,37 @@ export const addCategory = async (req: AuthRequest, res: Response) => {
       'INSERT INTO categories (name, type, user_id, family_id, budget_limit) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [name, type, userId, familyId, budget_limit || 0]
     );
-    await logAction(userId, username, familyId, 'ADD_CATEGORY', `Category: ${name} (Limit: ${budget_limit || 0})`);
+    await logAction(userId, username, familyId, 'ADD_CATEGORY', `Category: ${name}`);
     res.status(201).json(result.rows[0]);
-  } catch (error) {
-    res.status(500).json({ error: 'Database error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Database error' }); }
 };
 
 export const updateCategory = async (req: AuthRequest, res: Response) => {
   const userId = req.user?.id;
   const username = req.user?.username;
   const familyId = req.user?.family_id || 1;
-  const isAdmin = req.user?.is_admin;
   const { id } = req.params;
   const { name, type, budget_limit } = req.body;
   try {
-    let oldCat;
-    if (isAdmin) {
-      oldCat = await pool.query('SELECT name, type FROM categories WHERE id = $1 AND family_id = $2', [id, familyId]);
-    } else {
-      oldCat = await pool.query('SELECT name, type FROM categories WHERE id = $1 AND user_id = $2', [id, userId]);
-    }
-
-    if (oldCat.rows.length === 0) return res.status(404).json({ error: 'Access denied' });
-
-    const result = await pool.query(
-      'UPDATE categories SET name = $1, type = $2, budget_limit = $3 WHERE id = $4 RETURNING *',
-      [name, type, budget_limit || 0, id]
+    await pool.query(
+      'UPDATE categories SET name = $1, type = $2, budget_limit = $3 WHERE id = $4 AND (family_id = $5 OR user_id IS NULL)',
+      [name, type, budget_limit || 0, id, familyId]
     );
-    
-    await logAction(userId, username, familyId, 'UPDATE_CATEGORY', 
-      `Updated "${name}" (Limit: ${budget_limit})`);
-    
-    res.json(result.rows[0]);
-  } catch (error) {
-    res.status(500).json({ error: 'Database error' });
-  }
+    await logAction(userId, username, familyId, 'UPDATE_CATEGORY', `Updated: ${name}`);
+    res.sendStatus(204);
+  } catch (error) { res.status(500).json({ error: 'Database error' }); }
 };
 
 export const deleteCategory = async (req: AuthRequest, res: Response) => {
   const userId = req.user?.id;
   const username = req.user?.username;
   const familyId = req.user?.family_id || 1;
-  const isAdmin = req.user?.is_admin;
   const { id } = req.params;
   try {
-    let check;
-    if (isAdmin) {
-      check = await pool.query('SELECT name FROM categories WHERE id = $1 AND family_id = $2', [id, familyId]);
-    } else {
-      check = await pool.query('SELECT name FROM categories WHERE id = $1 AND user_id = $2', [id, userId]);
-    }
-
-    if (check.rows.length === 0) return res.status(404).json({ error: 'Access denied' });
-
-    await pool.query('DELETE FROM categories WHERE id = $1', [id]);
-    await logAction(userId, username, familyId, 'DELETE_CATEGORY', `Category: ${check.rows[0].name}`);
+    await pool.query('DELETE FROM categories WHERE id = $1 AND (family_id = $2 OR user_id IS NULL)', [id, familyId]);
+    await logAction(userId, username, familyId, 'DELETE_CATEGORY', `ID: ${id}`);
     res.sendStatus(204);
-  } catch (error) {
-    res.status(500).json({ error: 'Database error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Database error' }); }
 };
 
 // Transactions
@@ -111,45 +77,29 @@ export const getTransactions = async (req: AuthRequest, res: Response) => {
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.family_id = $1`;
     const params: any[] = [familyId];
-
-    if (startDate && endDate) {
-      queryText += ` AND t.date BETWEEN $2 AND $3`;
-      params.push(startDate, endDate);
-    }
-
+    if (startDate && endDate) { queryText += ` AND t.date BETWEEN $2 AND $3`; params.push(startDate, endDate); }
     queryText += ` ORDER BY t.date DESC`;
     const result = await pool.query(queryText, params);
     res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: 'Database error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Database error' }); }
 };
 
 export const addTransaction = async (req: AuthRequest, res: Response) => {
   const userId = req.user?.id;
   const username = req.user?.username;
   const familyId = req.user?.family_id || 1;
-  const { category_id, amount, currency, description, type, date } = req.body;
-  
+  const { category_id, amount, currency, description, type, date, is_recurring } = req.body;
   try {
     const rate = await getRate(currency);
     const amountMdl = parseFloat(amount) * rate;
-
     const result = await pool.query(
-      `INSERT INTO transactions (user_id, family_id, category_id, amount, currency, amount_mdl, description, type, date) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [userId, familyId, category_id, amount, currency, amountMdl, description, type, date || new Date()]
+      `INSERT INTO transactions (user_id, family_id, category_id, amount, currency, amount_mdl, description, type, date, is_recurring) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [userId, familyId, category_id, amount, currency, amountMdl, description, type, date || new Date(), is_recurring || false]
     );
-    
-    const cat = await pool.query('SELECT name FROM categories WHERE id = $1', [category_id]);
-    await logAction(userId, username, familyId, 'ADD_TRANSACTION', 
-      `${type === 'income' ? 'Income' : 'Expense'}: ${amount} ${currency} (${cat.rows[0]?.name})`);
-
+    await logAction(userId, username, familyId, 'ADD_TRANSACTION', `${amount} ${currency} (${type})`);
     res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Database error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Database error' }); }
 };
 
 export const getSummary = async (req: AuthRequest, res: Response) => {
@@ -158,49 +108,87 @@ export const getSummary = async (req: AuthRequest, res: Response) => {
   try {
     const params: any[] = [familyId];
     let dateFilter = "";
-    if (startDate && endDate) {
-      dateFilter = " AND t.date BETWEEN $2 AND $3";
-      params.push(startDate, endDate);
-    }
-
+    if (startDate && endDate) { dateFilter = " AND t.date BETWEEN $2 AND $3"; params.push(startDate, endDate); }
     const summaryResult = await pool.query(
-      `SELECT 
-        SUM(CASE WHEN type = 'income' THEN amount_mdl ELSE 0 END) as total_income,
-        SUM(CASE WHEN type = 'expense' THEN amount_mdl ELSE 0 END) as total_expense
-       FROM transactions 
-       WHERE family_id = $1 ${dateFilter.replace('t.','')}`,
-      params
-    );
-    
+      `SELECT SUM(CASE WHEN type = 'income' THEN amount_mdl ELSE 0 END) as total_income,
+              SUM(CASE WHEN type = 'expense' THEN amount_mdl ELSE 0 END) as total_expense
+       FROM transactions WHERE family_id = $1 ${dateFilter.replace('t.','')}`, params);
     const categoryAnalysis = await pool.query(
       `SELECT c.id, c.name, c.budget_limit, COALESCE(SUM(t.amount_mdl), 0) as total
-       FROM categories c
-       LEFT JOIN transactions t ON t.category_id = c.id ${dateFilter}
+       FROM categories c LEFT JOIN transactions t ON t.category_id = c.id ${dateFilter}
        WHERE c.family_id = $1 AND c.type = 'expense'
-       GROUP BY c.id, c.name, c.budget_limit
-       HAVING COALESCE(SUM(t.amount_mdl), 0) > 0 OR c.budget_limit > 0
-       ORDER BY total DESC`,
-      params
-    );
-
-    res.json({
-      summary: summaryResult.rows[0],
-      categories: categoryAnalysis.rows
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Database error' });
-  }
+       GROUP BY c.id, c.name, c.budget_limit ORDER BY total DESC`, params);
+    res.json({ summary: summaryResult.rows[0], categories: categoryAnalysis.rows });
+  } catch (error) { res.status(500).json({ error: 'Database error' }); }
 };
 
-// Logs and Admin Actions
+// Savings Goals
+export const getGoals = async (req: AuthRequest, res: Response) => {
+  const familyId = req.user?.family_id || 1;
+  try {
+    const result = await pool.query('SELECT * FROM savings_goals WHERE family_id = $1', [familyId]);
+    res.json(result.rows);
+  } catch (error) { res.status(500).json({ error: 'Error' }); }
+};
+
+export const addGoal = async (req: AuthRequest, res: Response) => {
+  const familyId = req.user?.family_id || 1;
+  const { name, target_amount, currency } = req.body;
+  try {
+    const result = await pool.query(
+      'INSERT INTO savings_goals (family_id, name, target_amount, currency) VALUES ($1, $2, $3, $4) RETURNING *',
+      [familyId, name, target_amount, currency || 'MDL']
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) { res.status(500).json({ error: 'Error' }); }
+};
+
+export const updateGoal = async (req: AuthRequest, res: Response) => {
+  const familyId = req.user?.family_id || 1;
+  const { id } = req.params;
+  const { current_amount } = req.body;
+  try {
+    await pool.query('UPDATE savings_goals SET current_amount = $1 WHERE id = $2 AND family_id = $3', [current_amount, id, familyId]);
+    res.sendStatus(204);
+  } catch (error) { res.status(500).json({ error: 'Error' }); }
+};
+
+export const deleteGoal = async (req: AuthRequest, res: Response) => {
+  const familyId = req.user?.family_id || 1;
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM savings_goals WHERE id = $1 AND family_id = $2', [id, familyId]);
+    res.sendStatus(204);
+  } catch (error) { res.status(500).json({ error: 'Error' }); }
+};
+
+// Export CSV
+export const exportCSV = async (req: AuthRequest, res: Response) => {
+  const familyId = req.user?.family_id || 1;
+  try {
+    const result = await pool.query(
+      `SELECT t.date, t.amount, t.currency, t.amount_mdl, t.description, t.type, c.name as category, u.username
+       FROM transactions t 
+       JOIN categories c ON t.category_id = c.id 
+       JOIN users u ON t.user_id = u.id
+       WHERE t.family_id = $1 ORDER BY t.date DESC`, [familyId]);
+    
+    let csv = 'Date,Amount,Currency,Amount MDL,Description,Type,Category,User\n';
+    result.rows.forEach(r => {
+      csv += `${r.date.toISOString().split('T')[0]},${r.amount},${r.currency},${r.amount_mdl},"${r.description || ''}",${r.type},${r.category},${r.username}\n`;
+    });
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=budget_export.csv');
+    res.status(200).send(csv);
+  } catch (error) { res.status(500).json({ error: 'Export failed' }); }
+};
+
+// Admin
 export const getRates = async (req: AuthRequest, res: Response) => {
   try {
     const result = await pool.query('SELECT currency, rate_to_mdl FROM exchange_rates');
     res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: 'Error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Error' }); }
 };
 
 export const getAuditLogs = async (req: AuthRequest, res: Response) => {
@@ -208,9 +196,7 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
   try {
     const result = await pool.query('SELECT * FROM audit_logs WHERE family_id = $1 ORDER BY created_at DESC LIMIT 50', [familyId]);
     res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: 'Error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Error' }); }
 };
 
 export const getUsers = async (req: AuthRequest, res: Response) => {
@@ -218,9 +204,7 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
   try {
     const result = await pool.query('SELECT id, username, is_admin FROM users WHERE family_id = $1 ORDER BY id ASC', [familyId]);
     res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: 'Error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Error' }); }
 };
 
 export const createUser = async (req: AuthRequest, res: Response) => {
@@ -228,40 +212,24 @@ export const createUser = async (req: AuthRequest, res: Response) => {
   const { username, password, is_admin } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const result = await pool.query(
-      'INSERT INTO users (username, password_hash, is_admin, family_id) VALUES ($1, $2, $3, $4) RETURNING id, username, is_admin',
-      [username, hashedPassword, is_admin || false, familyId]
-    );
-    await logAction(req.user?.id, req.user?.username, familyId, 'ADMIN_CREATE_USER', `Created user: ${username}`);
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    res.status(500).json({ error: 'User already exists or database error' });
-  }
+    await pool.query('INSERT INTO users (username, password_hash, is_admin, family_id) VALUES ($1, $2, $3, $4)', [username, hashedPassword, is_admin || false, familyId]);
+    res.sendStatus(201);
+  } catch (error) { res.status(500).json({ error: 'User already exists' }); }
 };
 
 export const deleteUser = async (req: AuthRequest, res: Response) => {
   const familyId = req.user?.family_id || 1;
   const { id } = req.params;
   try {
-    const userToDelete = await pool.query('SELECT username FROM users WHERE id = $1 AND family_id = $2', [id, familyId]);
-    if (userToDelete.rows.length === 0) return res.status(404).json({ error: 'User not found in your family' });
-
-    await pool.query('DELETE FROM users WHERE id = $1', [id]);
-    await logAction(req.user?.id, req.user?.username, familyId, 'DELETE_USER', `Deleted user: ${userToDelete.rows[0].username}`);
+    await pool.query('DELETE FROM users WHERE id = $1 AND family_id = $2', [id, familyId]);
     res.sendStatus(204);
-  } catch (error) {
-    res.status(500).json({ error: 'Error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Error' }); }
 };
 
 export const updateRegistrationSetting = async (req: AuthRequest, res: Response) => {
-  const familyId = req.user?.family_id || 1;
   const { enabled } = req.body;
   try {
     await pool.query("UPDATE app_settings SET value = $1 WHERE key = 'registration_enabled'", [enabled]);
-    await logAction(req.user?.id, req.user?.username, familyId, 'CONFIG_CHANGE', `Registration ${enabled ? 'enabled' : 'disabled'}`);
     res.sendStatus(204);
-  } catch (error) {
-    res.status(500).json({ error: 'Error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Error' }); }
 };
