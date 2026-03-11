@@ -1,0 +1,227 @@
+:root {
+  --zen-bg: #fdfdfd;
+  --zen-sidebar: #ffffff;
+  --zen-primary: #4a90e2;
+  --zen-success: #2ecc71;
+  --zen-error: #e74c3c;
+  --zen-text: #2c3e50;
+  --zen-text-light: #7f8c8d;
+  --zen-card-bg: #ffffff;
+  --zen-border: #f0f2f5;
+  --sidebar-width: 240px;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--zen-bg);
+  color: var(--zen-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar Zen Style */
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--zen-sidebar);
+  border-right: 1px solid var(--zen-border);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 100;
+}
+
+.sidebar h2 {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--zen-primary);
+  margin-bottom: 40px;
+  padding-left: 12px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  text-decoration: none;
+  color: var(--zen-text);
+  border-radius: 12px;
+  transition: all 0.2s;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.nav-link:hover {
+  background: #f8fafd;
+  color: var(--zen-primary);
+}
+
+.nav-link.active {
+  background: #ebf3ff;
+  color: var(--zen-primary);
+}
+
+/* Main Content Area */
+.main-wrap {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.container-zen {
+  max-width: 1100px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 32px;
+}
+
+/* Zen Cards */
+.card {
+  background: var(--zen-card-bg);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+  border: 1px solid var(--zen-border);
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--zen-text-light);
+  margin-bottom: 20px;
+  font-weight: 700;
+}
+
+/* Dashboard Summary */
+.balance-hero {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.balance-amount {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin: 8px 0;
+}
+
+.stats-mini-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.stat-box {
+  padding: 16px;
+  border-radius: 16px;
+  background: #f9fbff;
+}
+
+.stat-box.income { background: #f0fff4; color: var(--zen-success); }
+.stat-box.expense { background: #fff5f5; color: var(--zen-error); }
+
+/* Timeline History */
+.day-group {
+  margin-bottom: 24px;
+}
+
+.day-header {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--zen-text-light);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--zen-border);
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.transaction-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  gap: 16px;
+}
+
+.cat-icon {
+  width: 44px;
+  height: 44px;
+  background: #f0f4f8;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--zen-primary);
+}
+
+.tx-info { flex: 1; }
+.tx-name { font-weight: 600; font-size: 0.95rem; }
+.tx-desc { font-size: 0.8rem; color: var(--zen-text-light); }
+
+.tx-amount { text-align: right; }
+.amount-main { font-weight: 700; font-size: 1rem; }
+.amount-sub { font-size: 0.75rem; color: var(--zen-text-light); }
+
+/* Quick Action FAB */
+.fab {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: 60px;
+  height: 60px;
+  background: var(--zen-primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px rgba(74, 144, 226, 0.4);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.fab:hover { transform: scale(1.1); }
+
+/* Mobile Responsive */
+@media (max-width: 900px) {
+  .container-zen {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    display: none; /* In real app, we'd use a burger menu */
+  }
+}
+
+.input-zen {
+  background: #f8fafd;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+}
+
+.btn-zen {
+  background: var(--zen-primary);
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+}

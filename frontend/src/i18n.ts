@@ -1,0 +1,151 @@
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
+
+const resources = {
+  en: {
+    translation: {
+      balance: 'Current Balance',
+      income: 'Total Income',
+      expense: 'Total Expenses',
+      analysis: 'Spending Analysis',
+      history: 'Transaction History',
+      add_tx: 'Add Transaction',
+      category: 'Category',
+      amount: 'Amount',
+      currency: 'Currency',
+      type: 'Type',
+      description: 'Description',
+      save: 'Save',
+      cancel: 'Cancel',
+      logout: 'Log Out',
+      login: 'Login',
+      register: 'Register',
+      username: 'Username',
+      password: 'Password',
+      create_account: 'Create an account',
+      back_to_login: 'Back to login',
+      no_transactions: 'No transactions yet.',
+      date: 'Date',
+      settings: 'Settings',
+      manage_categories: 'Manage Categories',
+      add_category: 'Add Category',
+      delete: 'Delete',
+      edit: 'Edit',
+      edit_category: 'Edit Category',
+      from: 'From',
+      to: 'To',
+      name: 'Name',
+      admin: 'Administration',
+      users: 'Users',
+      add_user: 'Add User',
+      registration: 'Public Registration',
+      enabled: 'Enabled',
+      disabled: 'Disabled',
+      activity: 'Activity Feed',
+      currency_rates: 'Currency Rates',
+      reg_closed: 'Registration is currently disabled by administrator.'
+    }
+  },
+  ru: {
+    translation: {
+      balance: 'Текущий баланс',
+      income: 'Общий доход',
+      expense: 'Общие расходы',
+      analysis: 'Анализ расходов',
+      history: 'История транзакций',
+      add_tx: 'Добавить операцию',
+      category: 'Категория',
+      amount: 'Сумма',
+      currency: 'Валюта',
+      type: 'Тип',
+      description: 'Описание',
+      save: 'Сохранить',
+      cancel: 'Отмена',
+      logout: 'Выйти',
+      login: 'Вход',
+      register: 'Регистрация',
+      username: 'Имя пользователя',
+      password: 'Пароль',
+      create_account: 'Создать аккаунт',
+      back_to_login: 'Вернуться к входу',
+      no_transactions: 'Транзакций пока нет.',
+      date: 'Дата',
+      settings: 'Настройки',
+      manage_categories: 'Управление категориями',
+      add_category: 'Добавить категорию',
+      delete: 'Удалить',
+      edit: 'Изменить',
+      edit_category: 'Редактировать категорию',
+      from: 'С',
+      to: 'По',
+      name: 'Название',
+      admin: 'Администрирование',
+      users: 'Пользователи',
+      add_user: 'Добавить пользователя',
+      registration: 'Открытая регистрация',
+      enabled: 'Включена',
+      disabled: 'Выключена',
+      activity: 'Лента активности',
+      currency_rates: 'Курсы валют',
+      reg_closed: 'Регистрация временно отключена администратором.'
+    }
+  },
+  ro: {
+    translation: {
+      balance: 'Sold curent',
+      income: 'Venit total',
+      expense: 'Cheltuieli totale',
+      analysis: 'Analiza cheltuielilor',
+      history: 'Istoric tranzacții',
+      add_tx: 'Adaugă tranzacție',
+      category: 'Categorie',
+      amount: 'Sumă',
+      currency: 'Valută',
+      type: 'Tip',
+      description: 'Descriere',
+      save: 'Salvează',
+      cancel: 'Anulează',
+      logout: 'Deconectare',
+      login: 'Autentificare',
+      register: 'Înregistrare',
+      username: 'Utilizator',
+      password: 'Parolă',
+      create_account: 'Creează un cont',
+      back_to_login: 'Înapoi la autentificare',
+      no_transactions: 'Nicio tranzacție încă.',
+      date: 'Data',
+      settings: 'Setări',
+      manage_categories: 'Gestionare categorii',
+      add_category: 'Adaugă categorie',
+      delete: 'Șterge',
+      edit: 'Editează',
+      edit_category: 'Editează categoria',
+      from: 'De la',
+      to: 'Până la',
+      name: 'Nume',
+      admin: 'Administrare',
+      users: 'Utilizatori',
+      add_user: 'Adaugă utilizator',
+      registration: 'Înregistrare publică',
+      enabled: 'Activat',
+      disabled: 'Dezactivat',
+      activity: 'Activitate recentă',
+      currency_rates: 'Cursuri valutare',
+      reg_closed: 'Înregistrarea este momentan dezactivată de administrator.'
+    }
+  }
+};
+
+i18n
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    resources,
+    fallbackLng: 'en',
+    interpolation: {
+      escapeValue: false
+    }
+  });
+
+export default i18n;
