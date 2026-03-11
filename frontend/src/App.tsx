@@ -91,6 +91,7 @@ const Dashboard = () => {
 
   return (
     <div className="container-zen">
+      {/* Left Column */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <div className="card">
           <div className="balance-hero"><small className="section-title" style={{ marginBottom: 0 }}>{t('balance')}</small><div className="balance-amount">{balance} MDL</div></div>
@@ -101,17 +102,9 @@ const Dashboard = () => {
         </div>
 
         <div className="card">
-          <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><RefreshCw size={14} /> {t('currency_rates')}</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-            {rates.map(r => (<div key={r.currency} style={{ textAlign: 'center', padding: '6px', background: '#f8fafd', borderRadius: '10px' }}><div style={{ fontWeight: 800, fontSize: '0.7rem', color: 'var(--zen-primary)' }}>{r.currency}</div><div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{parseFloat(r.rate_to_mdl).toFixed(2)}</div></div>))}
-          </div>
-        </div>
-
-        <div className="card">
           <h3 className="section-title">{t('analysis')}</h3>
           <div style={{ padding: '10px', marginBottom: '20px' }}><Pie data={{ labels: summary.categories.map((c: any) => c.name), datasets: [{ data: summary.categories.map((c: any) => c.total), backgroundColor: ['#4a90e2', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6', '#34495e', '#1abc9c'] }] }} options={{ plugins: { legend: { display: false } } }} /></div>
           
-          {/* Budget Limits Progress */}
           {summary.categories.filter((c: any) => parseFloat(c.budget_limit) > 0).map((c: any) => {
             const percent = Math.min((parseFloat(c.total) / parseFloat(c.budget_limit)) * 100, 100);
             return (
@@ -136,18 +129,37 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Right Column */}
       <div>
-        <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px', alignItems: 'start', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px' }} type="date" value={dateRange.startDate} onChange={e => setDateRange({...dateRange, startDate: e.target.value})} />
-            <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px' }} type="date" value={dateRange.endDate} onChange={e => setDateRange({...dateRange, endDate: e.target.value})} />
+        {/* Top Row: Filters + SEARCH + Currency Rates */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px', alignItems: 'start', marginBottom: '24px' }}>
+          
+          <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
+                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.85rem' }} type="date" value={dateRange.startDate} onChange={e => setDateRange({...dateRange, startDate: e.target.value})} />
+                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px', fontSize: '0.85rem' }} type="date" value={dateRange.endDate} onChange={e => setDateRange({...dateRange, endDate: e.target.value})} />
+              </div>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#bdc3c7' }} />
+                <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px 8px 32px', fontSize: '0.85rem' }} placeholder={t('Search...')} value={search} onChange={e => setSearch(e.target.value)} />
+              </div>
+              <button className="btn-zen" style={{ width: 'auto', padding: '10px 16px' }} onClick={() => setShowAdd(true)}>
+                <Plus size={18} />
+              </button>
+            </div>
           </div>
-          <div style={{ position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#bdc3c7' }} />
-            <input className="input-zen" style={{ marginTop: 0, padding: '8px 12px 8px 36px' }} placeholder={t('Search...')} value={search} onChange={e => setSearch(e.target.value)} />
+
+          {/* Currency Rates Card (FIXED POSITION) */}
+          <div className="card" style={{ marginBottom: 0, padding: '16px' }}>
+            <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '0.75rem' }}><RefreshCw size={12} /> {t('currency_rates')}</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              {rates.map(r => (<div key={r.currency} style={{ textAlign: 'center', padding: '6px', background: '#f8fafd', borderRadius: '10px' }}><div style={{ fontWeight: 800, fontSize: '0.65rem', color: 'var(--zen-primary)' }}>{r.currency}</div><div style={{ fontWeight: 700, fontSize: '0.8rem' }}>{parseFloat(r.rate_to_mdl).toFixed(2)}</div></div>))}
+            </div>
           </div>
         </div>
 
+        {/* Timeline & History */}
         {Object.keys(groupedTx).length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '60px', color: '#bdc3c7' }}><Calendar size={48} style={{ marginBottom: '16px', opacity: 0.3 }} /><p>{t('no_transactions')}</p></div>
         ) : (
