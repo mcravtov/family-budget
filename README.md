@@ -64,3 +64,7 @@ A comprehensive, mobile-first financial management system designed for families.
 
 ---
 *Developed for smart financial management.*
+
+**Support & Feedback:**
+For any suggestions contact - mcravtov@gmail.com
+
